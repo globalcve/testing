@@ -1,18 +1,39 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import CveCard from './components/CveCard';
 import LoadingSpinner from './components/LoadingSpinner';
+import SearchFilters from './components/SearchFilters';
+import Statistics from './components/Statistics';
 
 export default function Page() {
   const [query, setQuery] = useState('');
-  const [severity, setSeverity] = useState('');
+  const [filters, setFilters] = useState({
+    severity: '',
+    source: '',
+    hasExploit: false,
+    isKev: false,
+    timeframe: ''
+  });
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [page, setPage] = useState(0);
   const [error, setError] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [stats, setStats] = useState<any>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastResultRef = useCallback((node: HTMLDivElement) => {
+    if (loading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        fetchResults(false, sortOrder);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loading, hasMore, sortOrder]);
 
   const fetchResults = async (reset = false, sort = sortOrder) => {
     if (loading) return;
@@ -21,14 +42,45 @@ export default function Page() {
     setHasSearched(true);
     const currentPage = reset ? 0 : page;
 
+    // Calculate date range based on timeframe
+    let startDate = '';
+    if (filters.timeframe) {
+      const now = new Date();
+      switch (filters.timeframe) {
+        case '24h':
+          startDate = new Date(now.setDate(now.getDate() - 1)).toISOString();
+          break;
+        case '7d':
+          startDate = new Date(now.setDate(now.getDate() - 7)).toISOString();
+          break;
+        case '30d':
+          startDate = new Date(now.setDate(now.getDate() - 30)).toISOString();
+          break;
+        case '1y':
+          startDate = new Date(now.setFullYear(now.getFullYear() - 1)).toISOString();
+          break;
+      }
+    }
+
     try {
-      const res = await fetch(
-        `/api/cves?query=${encodeURIComponent(query)}&severity=${severity}&sort=${sort}&startIndex=${currentPage * 100}`
-      );
+      const searchParams = new URLSearchParams({
+        query: query,
+        sort,
+        startIndex: (currentPage * 100).toString()
+      });
+
+      if (filters.severity) searchParams.append('severity', filters.severity);
+      if (filters.source) searchParams.append('source', filters.source);
+      if (filters.hasExploit) searchParams.append('hasExploit', 'true');
+      if (filters.isKev) searchParams.append('isKev', 'true');
+      if (startDate) searchParams.append('startDate', startDate);
+
+      const res = await fetch(`/api/cves?${searchParams.toString()}`);
       if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
       const data = await res.json();
       const newResults = data.results || [];
       setResults(reset ? newResults : [...results, ...newResults]);
+      setStats(data.stats);
       setPage(currentPage + 1);
     } catch (err: any) {
       console.error('❌ Fetch error:', err);
@@ -105,17 +157,15 @@ export default function Page() {
             placeholder="Search by CVE ID, keyword, or vendor..."
             className="w-full md:w-2/3 px-4 py-2 rounded-md bg-[#44475a] text-[#f8f8f2] placeholder-[#6272a4] border border-[#6272a4] focus:outline-none focus:ring-2 focus:ring-[#50fa7b]"
           />
-          <select
-            value={severity}
-            onChange={(e) => setSeverity(e.target.value)}
-            className="px-4 py-2 rounded-md bg-[#44475a] text-[#f8f8f2] border border-[#6272a4] focus:outline-none focus:ring-2 focus:ring-[#ff79c6]"
-          >
-            <option value="">All Severities</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
+          <SearchFilters
+            filters={filters}
+            onChange={(key, value) => {
+              setFilters(prev => ({ ...prev, [key]: value }));
+              setPage(0);
+              setResults([]);
+              fetchResults(true, sortOrder);
+            }}
+          />
           <select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
@@ -157,11 +207,19 @@ export default function Page() {
           </div>
         )}
 
+        {!loading && results.length > 0 && stats && (
+          <div className="mt-8 bg-[#44475a] rounded-lg p-4">
+            <Statistics stats={stats} />
+          </div>
+        )}
+
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
           {results.length > 0 && (
             <>
-              {(results as any[]).map((cve) => (
-                <CveCard key={cve.id} {...cve} />
+              {(results as any[]).map((cve, index) => (
+                <div key={cve.id} ref={index === results.length - 1 ? lastResultRef : undefined}>
+                  <CveCard {...cve} />
+                </div>
               ))}
             </>
           )}

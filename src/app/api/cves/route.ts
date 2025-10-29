@@ -1,11 +1,23 @@
-// Trigger redeploy: patch confirmed
 import AdmZip from 'adm-zip';
 import { Buffer } from 'buffer';
-console.log("🧪 LIVE PATCH: ExploitDB crash guard active");
 import { NextResponse } from 'next/server';
-import { fetchJVNFeed } from "../../../lib/jvn";
-import { fetchExploitDB } from "../../../lib/exploitdb";
-import { fetchKEV, keywordMatchKEV } from "../../../lib/kev"; // ✅ PATCHED: keyword-aware KEV
+import { fetchJVNFeed } from "@/lib/jvn";
+import { fetchExploitDB } from "@/lib/exploitdb";
+import { fetchKEV, keywordMatchKEV } from "@/lib/kev";
+import { parseAdvancedQuery, matchesQuery } from "@/lib/search";
+import { calculateStats } from "@/lib/stats";
+import { fetchCNNVD } from "@/lib/cnnvd"; // ✅ ADDED: CNNVD integration
+import { fetchAndroidBulletin } from "@/lib/android"; // ✅ ADDED: Android Security Bulletin
+import { fetchAppleAdvisories } from "@/lib/apple"; // ✅ ADDED: Apple Security Advisory
+import { fetchCertFR } from "@/lib/certfr"; // ✅ ADDED: CERT-FR
+import { fetchThinkpadCVEs } from "@/lib/lenovo"; // ✅ ADDED: Lenovo ThinkPad CVEs
+import { fetchOracleCPUs } from "@/lib/oracle"; // ✅ ADDED: Oracle CPUs
+import { fetchVMwareAdvisories } from "@/lib/vmware"; // ✅ ADDED: VMware Advisories
+import { fetchCiscoAdvisories } from "@/lib/cisco"; // ✅ ADDED: Cisco Advisories
+import { fetchRedHatCVEs } from "@/lib/redhat"; // ✅ ADDED: RedHat CVEs
+import { fetchUbuntuCVEs } from "@/lib/ubuntu"; // ✅ ADDED: Ubuntu CVEs
+import { fetchDebianCVEs } from "@/lib/debian"; // ✅ ADDED: Debian CVEs
+import { fetchSAPNotes } from "@/lib/sap"; // ✅ ADDED: SAP Notes
 
 const NVD_API_KEY = process.env.NVD_API_KEY;
 
@@ -37,11 +49,28 @@ function inferSeverity(item: any): string {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+const { searchParams } = new URL(request.url);
   const query = searchParams.get('query') || '';
   const severityFilter = searchParams.get('severity')?.toUpperCase();
   const sortOrder = searchParams.get('sort') || 'newest';
+  const startDate = searchParams.get('startDate');
+  const endDate = searchParams.get('endDate');
+  const sourceFilter = searchParams.get('source')?.toUpperCase();
+  const hasExploit = searchParams.get('hasExploit') === 'true';
+  const isKev = searchParams.get('isKev') === 'true';
   const isExactCveId = /^CVE-\d{4}-\d{4,}$/.test(query);
+  
+  // Parse advanced search operators
+  const searchTerms = parseAdvancedQuery(query);
+
+  // Validate startDate if provided
+  let startDateTime: number | null = null;
+  if (startDate) {
+    const date = new Date(startDate);
+    if (!isNaN(date.getTime())) {
+      startDateTime = date.getTime();
+    }
+  }
 
   const allResults: any[] = [];
 
@@ -85,6 +114,13 @@ export async function GET(request: Request) {
         published: item.cve.published || new Date().toISOString(),
         source: 'NVD',
         kev: kevMap.has(item.cve.id) || kevKeywordMatches.has(item.cve.id), // ✅ PATCHED
+        cwe: item.cve.weaknesses?.[0]?.description?.[0]?.value || null,
+        cwes: item.cve.weaknesses?.map((w: any) => w.description?.[0]?.value).filter(Boolean) || [],
+        references: item.cve.references?.map((ref: any) => ({
+          url: ref.url,
+          source: ref.source,
+          tags: ref.tags || []
+        })) || []
       })));
     } catch (err) {
       console.error(`❌ NVD page ${i + 1} error:`, err);
@@ -156,6 +192,19 @@ export async function GET(request: Request) {
     console.error('❌ JVN fetch error:', err);
   }
 
+  // 🔹 CNNVD integration with KEV enrichment
+  try {
+    const cnnvdResults = await fetchCNNVD(query);
+    console.log('🇨🇳 CNNVD entries loaded:', cnnvdResults.length);
+    
+    allResults.push(...cnnvdResults.map(item => ({
+      ...item,
+      kev: kevMap.has(item.id) || kevKeywordMatches.has(item.id), // ✅ PATCHED: KEV enrichment
+    })));
+  } catch (err) {
+    console.error('❌ CNNVD fetch error:', err);
+  }
+
   // 🔹 ExploitDB with partial match
   let exploitResults = [];
   try {
@@ -186,6 +235,98 @@ export async function GET(request: Request) {
   }
 
   // 🔹 CVE.org GitHub release
+  // 🔹 Additional advisory sources
+  console.log('📱 Fetching vendor advisories...');
+  
+  // Android Security Bulletin
+  try {
+    const androidResults = await fetchAndroidBulletin();
+    allResults.push(...androidResults);
+  } catch (err) {
+    console.error('❌ Android bulletin error:', err);
+  }
+
+  // Apple Security Advisory
+  try {
+    const appleResults = await fetchAppleAdvisories();
+    allResults.push(...appleResults);
+  } catch (err) {
+    console.error('❌ Apple advisory error:', err);
+  }
+
+  // CERT-FR
+  try {
+    const certFrResults = await fetchCertFR();
+    allResults.push(...certFrResults);
+  } catch (err) {
+    console.error('❌ CERT-FR error:', err);
+  }
+
+  // Lenovo ThinkPad CVEs
+  try {
+    const thinkpadResults = await fetchThinkpadCVEs();
+    allResults.push(...thinkpadResults);
+  } catch (err) {
+    console.error('❌ Lenovo ThinkPad CVE error:', err);
+  }
+
+  // Oracle Critical Patch Updates
+  try {
+    const oracleCPUResults = await fetchOracleCPUs();
+    allResults.push(...oracleCPUResults);
+  } catch (err) {
+    console.error('❌ Oracle CPU error:', err);
+  }
+
+  // VMware Security Advisories
+  try {
+    const vmwareResults = await fetchVMwareAdvisories();
+    allResults.push(...vmwareResults);
+  } catch (err) {
+    console.error('❌ VMware advisory error:', err);
+  }
+
+  // Cisco Security Advisories
+  try {
+    const ciscoResults = await fetchCiscoAdvisories();
+    allResults.push(...ciscoResults);
+  } catch (err) {
+    console.error('❌ Cisco advisory error:', err);
+  }
+
+  // RedHat Security Data
+  try {
+    const redhatResults = await fetchRedHatCVEs();
+    allResults.push(...redhatResults);
+  } catch (err) {
+    console.error('❌ RedHat CVE error:', err);
+  }
+
+  // Ubuntu Security Notices
+  try {
+    const ubuntuResults = await fetchUbuntuCVEs();
+    allResults.push(...ubuntuResults);
+  } catch (err) {
+    console.error('❌ Ubuntu CVE error:', err);
+  }
+
+  // Debian Security Tracker
+  try {
+    const debianResults = await fetchDebianCVEs();
+    allResults.push(...debianResults);
+  } catch (err) {
+    console.error('❌ Debian CVE error:', err);
+  }
+
+  // SAP Security Notes
+  try {
+    const sapResults = await fetchSAPNotes();
+    allResults.push(...sapResults);
+  } catch (err) {
+    console.error('❌ SAP Security Note error:', err);
+  }
+
+  // CVE.org data
   try {
     if (query.trim()) {
       const res = await fetch('https://github.com/globalcve/globalcve/releases/download/v1.0.0/cveorg.json');
@@ -253,16 +394,53 @@ export async function GET(request: Request) {
     console.error('❌ Archive CVE fetch error:', err);
   }
 
-  // 🔹 Prioritize exact CVE ID match if applicable
+  // 🔹 Apply advanced search filters
   let results = isExactCveId
     ? allResults.filter((r) => r.id?.toUpperCase() === query.toUpperCase())
-    : allResults;
+    : allResults.filter((item) => {
+        const searchTerms = parseAdvancedQuery(query);
+        const searchText = `${item.description} ${item.id} ${item.source}`.toLowerCase();
+        return matchesQuery(searchText, searchTerms);
+      });
 
   console.log('🎯 Exact match results:', results.length);
 
   // 🔹 Filter by severity
   if (severityFilter) {
     results = results.filter((cve) => cve.severity?.toUpperCase() === severityFilter);
+  }
+
+  // 🔹 Apply all filters
+  console.log('🎯 Applying filters...');
+  
+  // Date filters
+  if (startDateTime || endDate) {
+    const endDateTime = endDate ? new Date(endDate).getTime() : Infinity;
+    console.log('📅 Date range:', startDateTime ? new Date(startDateTime).toISOString() : 'any', 'to', endDate || 'any');
+    
+    results = results.filter((cve) => {
+      const pubDate = new Date(cve.published).getTime();
+      return (!startDateTime || pubDate >= startDateTime) && 
+             (pubDate <= endDateTime);
+    });
+  }
+
+  // Source filter
+  if (sourceFilter) {
+    console.log('🔍 Filtering by source:', sourceFilter);
+    results = results.filter((cve) => cve.source?.toUpperCase() === sourceFilter);
+  }
+
+  // Exploit filter
+  if (hasExploit) {
+    console.log('💣 Filtering for exploits');
+    results = results.filter((cve) => cve.source === 'EXPLOITDB');
+  }
+
+  // KEV filter
+  if (isKev) {
+    console.log('🚨 Filtering for KEV');
+    results = results.filter((cve) => cve.kev === true);
   }
 
   // 🔹 Sort by publish date
@@ -276,6 +454,16 @@ export async function GET(request: Request) {
   const startIndex = parseInt(searchParams.get('startIndex') || '0', 10);
   const paginatedResults = results.slice(startIndex, startIndex + 100);
 
-  console.log(`🧠 Returning ${paginatedResults.length} CVEs`);
-  return NextResponse.json({ query, results: paginatedResults });
+  // Calculate statistics for the full result set
+  const stats = calculateStats(results);
+  
+  console.log(`🧠 Returning ${paginatedResults.length} CVEs with statistics`);
+  return NextResponse.json({ 
+    query, 
+    results: paginatedResults,
+    stats,
+    total: results.length,
+    page: Math.floor(startIndex / 100) + 1,
+    totalPages: Math.ceil(results.length / 100)
+  });
 }
