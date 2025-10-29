@@ -3,23 +3,32 @@ import { JSDOM } from 'jsdom';
 
 const LENOVO_PSIRT_URL = 'https://support.lenovo.com/us/en/product_security/ps';
 
-export async function fetchThinkpadCVEs(): Promise<CVE[]> {
+import * as cheerio from 'cheerio';
+
+export async function fetchThinkpadCVEs(query: string = ''): Promise<any[]> {
   try {
-    const response = await fetch(LENOVO_PSIRT_URL);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Lenovo PSIRT: ${response.statusText}`);
-    }
-    
+    const response = await fetch('https://support.lenovo.com/us/en/solutions/len-24692');
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+
+    const $ = cheerio.load(html);
 
     // Find all advisory entries that mention ThinkPad
-    const advisories = Array.from(doc.querySelectorAll('table tr'))
-      .filter((row): row is HTMLTableRowElement => {
-        const text = row.textContent?.toLowerCase() || '';
-        return text.includes('thinkpad');
-      });
+    const $ = cheerio.load(html);
+
+    const advisories = $('table tr')
+      .map((_, row) => {
+        const text = $(row).text().toLowerCase();
+        if (!text.includes(query.toLowerCase())) return null;
+        
+        const cells = $(row).find('td');
+        return {
+          id: $(cells[0]).text().trim() || '',
+          description: $(cells[1]).text().trim() || '',
+          severity: $(cells[2]).text().trim() || 'UNKNOWN',
+          published: new Date().toISOString(), // Using current date as fallback
+          source: 'LENOVO'
+        };
 
     const cves: CVE[] = [];
 

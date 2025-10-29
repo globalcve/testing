@@ -10,14 +10,6 @@ import { fetchCNNVD } from "@/lib/cnnvd"; // ✅ ADDED: CNNVD integration
 import { fetchAndroidBulletin } from "@/lib/android"; // ✅ ADDED: Android Security Bulletin
 import { fetchAppleAdvisories } from "@/lib/apple"; // ✅ ADDED: Apple Security Advisory
 import { fetchCertFR } from "@/lib/certfr"; // ✅ ADDED: CERT-FR
-import { fetchThinkpadCVEs } from "@/lib/lenovo"; // ✅ ADDED: Lenovo ThinkPad CVEs
-import { fetchOracleCPUs } from "@/lib/oracle"; // ✅ ADDED: Oracle CPUs
-import { fetchVMwareAdvisories } from "@/lib/vmware"; // ✅ ADDED: VMware Advisories
-import { fetchCiscoAdvisories } from "@/lib/cisco"; // ✅ ADDED: Cisco Advisories
-import { fetchRedHatCVEs } from "@/lib/redhat"; // ✅ ADDED: RedHat CVEs
-import { fetchUbuntuCVEs } from "@/lib/ubuntu"; // ✅ ADDED: Ubuntu CVEs
-import { fetchDebianCVEs } from "@/lib/debian"; // ✅ ADDED: Debian CVEs
-import { fetchSAPNotes } from "@/lib/sap"; // ✅ ADDED: SAP Notes
 
 const NVD_API_KEY = process.env.NVD_API_KEY;
 

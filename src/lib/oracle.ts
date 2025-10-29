@@ -3,16 +3,15 @@ import { JSDOM } from 'jsdom';
 
 const ORACLE_CPU_URL = 'https://www.oracle.com/security-alerts/';
 
-export async function fetchOracleCPUs(): Promise<CVE[]> {
+import * as cheerio from 'cheerio';
+
+export async function fetchOracleCPUs(query: string = ''): Promise<any[]> {
   try {
-    const response = await fetch(ORACLE_CPU_URL);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Oracle CPUs: ${response.statusText}`);
-    }
-    
+    const response = await fetch('https://www.oracle.com/security-alerts/cpujan2024.html');
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+
+    const $page = cheerio.load(html);
 
     const cves: CVE[] = [];
     const cpuTables = Array.from(doc.getElementsByTagName('table'));
