@@ -6,18 +6,18 @@ import { fetchExploitDB } from "@/lib/exploitdb";
 import { fetchKEV, keywordMatchKEV } from "@/lib/kev";
 import { parseAdvancedQuery, matchesQuery } from "@/lib/search";
 import { calculateStats } from "@/lib/stats";
-import { fetchCNNVD } from "@/lib/cnnvd"; // ✅ ADDED: CNNVD integration
-import { fetchAndroidBulletin } from "@/lib/android"; // ✅ ADDED: Android Security Bulletin
-import { fetchAppleAdvisories } from "@/lib/apple"; // ✅ ADDED: Apple Security Advisory
-import { fetchCertFR } from "@/lib/certfr"; // ✅ ADDED: CERT-FR
-import { fetchThinkpadCVEs } from "@/lib/lenovo"; // ✅ ADDED: Lenovo ThinkPad CVEs
-import { fetchOracleCPUs } from "@/lib/oracle"; // ✅ ADDED: Oracle CPUs
-import { fetchVMwareAdvisories } from "@/lib/vmware"; // ✅ ADDED: VMware Advisories
-import { fetchCiscoAdvisories } from "@/lib/cisco"; // ✅ ADDED: Cisco Advisories
-import { fetchRedHatCVEs } from "@/lib/redhat"; // ✅ ADDED: RedHat CVEs
-import { fetchUbuntuCVEs } from "@/lib/ubuntu"; // ✅ ADDED: Ubuntu CVEs
-import { fetchDebianCVEs } from "@/lib/debian"; // ✅ ADDED: Debian CVEs
-import { fetchSAPNotes } from "@/lib/sap"; // ✅ ADDED: SAP Notes
+import { fetchCNNVD } from "@/lib/cnnvd";
+import { fetchAndroidBulletin } from "@/lib/android";
+import { fetchAppleAdvisories } from "@/lib/apple";
+import { fetchCertFR } from "@/lib/certfr";
+import { fetchThinkpadCVEs } from "@/lib/thinkpad";
+import { fetchOracleCPUs } from "@/lib/oracle";
+import { fetchVMwareAdvisories } from "@/lib/vmware";
+import { fetchCiscoAdvisories } from "@/lib/cisco";
+import { fetchRedHatCVEs } from "@/lib/redhat";
+import { fetchUbuntuCVEs } from "@/lib/ubuntu";
+import { fetchDebianCVEs } from "@/lib/debian";
+import { fetchSAPNotes } from "@/lib/sap";
 
 const NVD_API_KEY = process.env.NVD_API_KEY;
 
@@ -96,7 +96,7 @@ const { searchParams } = new URL(request.url);
   // 🔹 Fetch from NVD (5 pages)
   for (let i = 0; i < 5; i++) {
     const startIndex = i * 100;
-    const pageUrl = `https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=${encodeURIComponent(query)}&resultsPerPage=100&startIndex=${startIndex}`;
+    const pageUrl = `https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=${encodeURIComponent(query )}&resultsPerPage=100&startIndex=${startIndex}`;
     console.log(`🌐 NVD page ${i + 1}: ${pageUrl}`);
 
     try {
@@ -129,8 +129,8 @@ const { searchParams } = new URL(request.url);
   // 🔹 CIRCL fallback — keyword or exact ID
   try {
     const circlUrl = isExactCveId
-      ? `https://cve.circl.lu/api/cve/${encodeURIComponent(query)}`
-      : `https://cve.circl.lu/api/search/${encodeURIComponent(query)}`;
+      ? `https://cve.circl.lu/api/cve/${encodeURIComponent(query )}`
+      : `https://cve.circl.lu/api/search/${encodeURIComponent(query )}`;
     console.log(`🔁 CIRCL query: ${circlUrl}`);
 
     const circlRes = await fetch(circlUrl);
@@ -239,97 +239,97 @@ const { searchParams } = new URL(request.url);
   console.log('📱 Fetching vendor advisories...');
   
   // Android Security Bulletin
-  try {
-    const androidResults = await fetchAndroidBulletin();
-    allResults.push(...androidResults);
-  } catch (err) {
-    console.error('❌ Android bulletin error:', err);
-  }
+  // try {
+  //   const androidResults = await fetchAndroidBulletin();
+  //   allResults.push(...androidResults);
+  // } catch (err) {
+  //   console.error("❌ Android bulletin error:", err);
+  // }
 
   // Apple Security Advisory
-  try {
-    const appleResults = await fetchAppleAdvisories();
-    allResults.push(...appleResults);
-  } catch (err) {
-    console.error('❌ Apple advisory error:', err);
-  }
+  // try {
+  //   const appleResults = await fetchAppleAdvisories();
+  //   allResults.push(...appleResults);
+  // } catch (err) {
+  //   console.error("❌ Apple advisory error:", err);
+  // }
 
   // CERT-FR
-  try {
-    const certFrResults = await fetchCertFR();
-    allResults.push(...certFrResults);
-  } catch (err) {
-    console.error('❌ CERT-FR error:', err);
-  }
+  // try {
+  //   const certFrResults = await fetchCertFR();
+  //   allResults.push(...certFrResults);
+  // } catch (err) {
+  //   console.error("❌ CERT-FR error:", err);
+  // }
 
   // Lenovo ThinkPad CVEs
-  try {
-    const thinkpadResults = await fetchThinkpadCVEs();
-    allResults.push(...thinkpadResults);
-  } catch (err) {
-    console.error('❌ Lenovo ThinkPad CVE error:', err);
-  }
+  // try {
+  //   const thinkpadResults = await fetchThinkpadCVEs();
+  //   allResults.push(...thinkpadResults);
+  // } catch (err) {
+  //   console.error("❌ Lenovo ThinkPad CVE error:", err);
+  // }
 
   // Oracle Critical Patch Updates
-  try {
-    const oracleCPUResults = await fetchOracleCPUs();
-    allResults.push(...oracleCPUResults);
-  } catch (err) {
-    console.error('❌ Oracle CPU error:', err);
-  }
+  // try {
+  //   const oracleCPUResults = await fetchOracleCPUs();
+  //   allResults.push(...oracleCPUResults);
+  // } catch (err) {
+  //   console.error("❌ Oracle CPU error:", err);
+  // }
 
   // VMware Security Advisories
-  try {
-    const vmwareResults = await fetchVMwareAdvisories();
-    allResults.push(...vmwareResults);
-  } catch (err) {
-    console.error('❌ VMware advisory error:', err);
-  }
+  // try {
+  //   const vmwareResults = await fetchVMwareAdvisories();
+  //   allResults.push(...vmwareResults);
+  // } catch (err) {
+  //   console.error("❌ VMware advisory error:", err);
+  // }
 
   // Cisco Security Advisories
-  try {
-    const ciscoResults = await fetchCiscoAdvisories();
-    allResults.push(...ciscoResults);
-  } catch (err) {
-    console.error('❌ Cisco advisory error:', err);
-  }
+  // try {
+  //   const ciscoResults = await fetchCiscoAdvisories();
+  //   allResults.push(...ciscoResults);
+  // } catch (err) {
+  //   console.error("❌ Cisco advisory error:", err);
+  // }
 
   // RedHat Security Data
-  try {
-    const redhatResults = await fetchRedHatCVEs();
-    allResults.push(...redhatResults);
-  } catch (err) {
-    console.error('❌ RedHat CVE error:', err);
-  }
+  // try {
+  //   const redhatResults = await fetchRedHatCVEs();
+  //   allResults.push(...redhatResults);
+  // } catch (err) {
+  //   console.error("❌ RedHat CVE error:", err);
+  // }
 
   // Ubuntu Security Notices
-  try {
-    const ubuntuResults = await fetchUbuntuCVEs();
-    allResults.push(...ubuntuResults);
-  } catch (err) {
-    console.error('❌ Ubuntu CVE error:', err);
-  }
+  // try {
+  //   const ubuntuResults = await fetchUbuntuCVEs();
+  //   allResults.push(...ubuntuResults);
+  // } catch (err) {
+  //   console.error("❌ Ubuntu CVE error:", err);
+  // }
 
   // Debian Security Tracker
-  try {
-    const debianResults = await fetchDebianCVEs();
-    allResults.push(...debianResults);
-  } catch (err) {
-    console.error('❌ Debian CVE error:', err);
-  }
+  // try {
+  //   const debianResults = await fetchDebianCVEs();
+  //   allResults.push(...debianResults);
+  // } catch (err) {
+  //   console.error("❌ Debian CVE error:", err);
+  // }
 
   // SAP Security Notes
-  try {
-    const sapResults = await fetchSAPNotes();
-    allResults.push(...sapResults);
-  } catch (err) {
-    console.error('❌ SAP Security Note error:', err);
-  }
+  // try {
+  //   const sapResults = await fetchSAPNotes();
+  //   allResults.push(...sapResults);
+  // } catch (err) {
+  //   console.error("❌ SAP Security Note error:", err);
+  // }
 
   // CVE.org data
   try {
     if (query.trim()) {
-      const res = await fetch('https://github.com/globalcve/globalcve/releases/download/v1.0.0/cveorg.json');
+      const res = await fetch('https://github.com/globalcve/globalcve/releases/download/v1.0.0/cveorg.json' );
       const cveorgData = await res.json();
 
       const q = query.toLowerCase();
@@ -360,7 +360,7 @@ const { searchParams } = new URL(request.url);
 
     if (year) {
       console.log(`📦 Fetching ${year}.json from cves.zip`);
-      const zipRes = await fetch('https://github.com/globalcve/globalcve/releases/download/v1.0.1/cves.zip');
+      const zipRes = await fetch('https://github.com/globalcve/globalcve/releases/download/v1.0.1/cves.zip' );
       const zipBuffer = Buffer.from(await zipRes.arrayBuffer());
       const zip = new AdmZip(zipBuffer);
 
