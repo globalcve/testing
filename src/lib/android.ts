@@ -4,7 +4,7 @@
  */
 
 const ANDROID_BULLETIN_BASE = 'https://source.android.com/security/bulletin';
-const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_YEAR = new Date( ).getFullYear();
 
 interface AndroidBulletinItem {
   id: string;          // CVE ID
