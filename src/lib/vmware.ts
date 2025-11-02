@@ -1,9 +1,9 @@
 import { CVE } from '@/types';
-import { JSDOM } from 'jsdom';
+import * as cheerio from 'cheerio';
 
 const VMWARE_ADVISORY_URL = 'https://www.vmware.com/security/advisories.html';
 
-export async function fetchVMwareAdvisories(): Promise<CVE[]> {
+export async function fetchVMwareAdvisories( ): Promise<CVE[]> {
   try {
     const response = await fetch(VMWARE_ADVISORY_URL);
     if (!response.ok) {
@@ -11,22 +11,21 @@ export async function fetchVMwareAdvisories(): Promise<CVE[]> {
     }
     
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+    const $ = cheerio.load(html);
 
     const cves: CVE[] = [];
-    const advisoryRows = doc.querySelectorAll('table tr');
+    const advisoryRows = $('table tr');
 
-    for (const row of Array.from(advisoryRows)) {
-      const cells = row.querySelectorAll('td');
-      if (cells.length < 5) continue;
+    advisoryRows.each((_, row) => {
+      const cells = $(row).find('td');
+      if (cells.length < 5) return;
 
-      const advisoryId = cells[0].textContent?.trim() || '';
-      const updateLink = cells[0].querySelector('a')?.href || '';
-      const description = cells[1].textContent?.trim() || '';
-      const products = cells[2].textContent?.trim() || '';
-      const severity = cells[3].textContent?.trim().toUpperCase() || 'UNKNOWN';
-      const publishDate = cells[4].textContent?.trim() || '';
+      const advisoryId = $(cells[0]).text().trim();
+      const updateLink = $(cells[0]).find('a').attr('href') || '';
+      const description = $(cells[1]).text().trim();
+      const products = $(cells[2]).text().trim();
+      const severity = $(cells[3]).text().trim().toUpperCase() || 'UNKNOWN';
+      const publishDate = $(cells[4]).text().trim();
 
       // Extract CVE IDs from description
       const cveMatches = description.match(/CVE-\d{4}-\d{4,}/g) || [];
@@ -47,7 +46,7 @@ export async function fetchVMwareAdvisories(): Promise<CVE[]> {
           }
         });
       }
-    }
+    });
 
     return cves;
   } catch (error) {
