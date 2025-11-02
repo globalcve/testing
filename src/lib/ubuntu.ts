@@ -1,15 +1,14 @@
 import { CVE } from '@/types';
 import * as cheerio from 'cheerio';
 
-const UBUNTU_USN_URL = 'https://ubuntu.com/security/notices/';
+const UBUNTU_USN_URL = 'https://ubuntu.com/security/notices';
 
-export async function fetchUbuntuCVEs( ): Promise<CVE[]> {
+export async function fetchUbuntuCVEs(): Promise<CVE[]> {
   try {
     const response = await fetch(UBUNTU_USN_URL);
     if (!response.ok) {
       throw new Error(`Failed to fetch Ubuntu Security Notices: ${response.statusText}`);
     }
-    
     const html = await response.text();
     const $ = cheerio.load(html);
 
@@ -54,7 +53,7 @@ export async function fetchUbuntuCVEs( ): Promise<CVE[]> {
   }
 }
 
-function determineSeverity(element: cheerio.Cheerio<cheerio.Element>): string {
+function determineSeverity(element: cheerio.Cheerio<cheerio.AnyNode>): string {
   const priority = element.find('.p-notification__priority').text().toLowerCase().trim() || '';
   
   switch (priority) {
