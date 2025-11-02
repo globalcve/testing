@@ -1,9 +1,9 @@
 import { CVE } from '@/types';
-import { JSDOM } from 'jsdom';
+import * as cheerio from 'cheerio';
 
 const CISCO_ADVISORY_URL = 'https://tools.cisco.com/security/center/publicationListing.x';
 
-export async function fetchCiscoAdvisories(): Promise<CVE[]> {
+export async function fetchCiscoAdvisories( ): Promise<CVE[]> {
   try {
     const response = await fetch(CISCO_ADVISORY_URL);
     if (!response.ok) {
@@ -11,44 +11,44 @@ export async function fetchCiscoAdvisories(): Promise<CVE[]> {
     }
     
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+    const $ = cheerio.load(html);
 
     const cves: CVE[] = [];
-    const advisoryElements = doc.querySelectorAll('.cisco_alert');
+    
+    // Target the table rows that contain the advisory data.
+    // This is a guess based on common Cisco advisory page structure.
+    $('table.data-table tr').each((_, row) => {
+      const cells = $(row).find('td');
+      if (cells.length < 5) return;
 
-    for (const advisory of Array.from(advisoryElements)) {
-      const titleElement = advisory.querySelector('.alert_title');
-      const dateElement = advisory.querySelector('.alert_date');
-      const impactElement = advisory.querySelector('.cvss_score');
-      const cveElement = advisory.querySelector('.cve_id');
+      const advisoryLink = $(cells[0]).find('a');
+      const advisoryTitle = advisoryLink.text().trim();
+      const advisoryUrl = advisoryLink.attr('href') || CISCO_ADVISORY_URL;
+      const publishDate = $(cells[1]).text().trim();
+      const cveId = $(cells[2]).text().trim();
+      const cvssScore = $(cells[3]).text().trim();
 
-      const title = titleElement?.textContent?.trim() || '';
-      const publishDate = dateElement?.textContent?.trim() || '';
-      const cvssScore = impactElement?.textContent?.trim() || '';
-      const cveId = cveElement?.textContent?.trim() || '';
-
-      if (!cveId.startsWith('CVE-')) continue;
+      if (!cveId.startsWith('CVE-')) return;
 
       // Extract product information from title
-      const productMatch = title.match(/\[(.*?)\]/);
+      const productMatch = advisoryTitle.match(/\[(.*?)\]/);
       const product = productMatch ? productMatch[1] : 'Unknown Product';
 
       cves.push({
         id: cveId,
-        description: title,
+        description: advisoryTitle,
         severity: inferSeverityFromCVSS(parseFloat(cvssScore)),
         published: new Date(publishDate).toISOString(),
         source: 'CISCO',
         metadata: {
           product,
           cvssScore,
-          advisoryUrl: CISCO_ADVISORY_URL,
+          advisoryUrl,
           type: 'Cisco Security Advisory',
           vendor: 'Cisco'
         }
       });
-    }
+    });
 
     return cves;
   } catch (error) {
