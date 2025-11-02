@@ -53,7 +53,7 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
   }
 }
 
-function determineSeverity(element: cheerio.Cheerio<cheerio.AnyNode>): string {
+function determineSeverity(element: ReturnType<typeof cheerio.load>): string {
   const priority = element.find('.p-notification__priority').text().toLowerCase().trim() || '';
   
   switch (priority) {
