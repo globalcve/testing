@@ -22,7 +22,7 @@ interface CertFRAdvisory {
  * Fetches CERT-FR advisories
  * Returns array of normalized vulnerability objects
  */
-export async function fetchCertFR(): Promise<any[]> {
+export async function fetchCertFR( ): Promise<any[]> {
   const results: any[] = [];
 
   try {
