@@ -1,9 +1,9 @@
 import { CVE } from '@/types';
-import { JSDOM } from 'jsdom';
+import * as cheerio from 'cheerio';
 
 const SAP_SECURITY_URL = 'https://support.sap.com/security';
 
-export async function fetchSAPNotes(): Promise<CVE[]> {
+export async function fetchSAPNotes( ): Promise<CVE[]> {
   try {
     const response = await fetch(SAP_SECURITY_URL);
     if (!response.ok) {
@@ -11,30 +11,30 @@ export async function fetchSAPNotes(): Promise<CVE[]> {
     }
     
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+    const $ = cheerio.load(html);
 
     const cves: CVE[] = [];
-    const notes = doc.querySelectorAll('.security-note');
+    
+    // Target the table rows that contain the security notes.
+    // This is a guess based on common SAP security page structure.
+    $('table.security-notes-table tr').each((_, row) => {
+      const cells = $(row).find('td');
+      if (cells.length < 5) return;
 
-    for (const note of Array.from(notes)) {
-      const noteId = note.querySelector('.note-id')?.textContent?.trim() || '';
-      const title = note.querySelector('.note-title')?.textContent?.trim() || '';
-      const description = note.querySelector('.note-description')?.textContent?.trim() || '';
-      const published = note.querySelector('.note-date')?.textContent?.trim() || '';
-      const priority = note.querySelector('.note-priority')?.textContent?.trim() || '';
-      
+      const noteId = $(cells[0]).text().trim();
+      const title = $(cells[1]).text().trim();
+      const published = $(cells[2]).text().trim();
+      const priority = $(cells[3]).text().trim();
+      const cveIdText = $(cells[4]).text().trim();
+
       // Extract CVE references
-      const cveRefs = note.querySelectorAll('.cve-ref');
-      const componentInfo = note.querySelector('.component')?.textContent?.trim() || '';
+      const cveMatches = cveIdText.match(/CVE-\d{4}-\d{4,}/g) || [];
+      const componentInfo = $(cells[5]).text().trim();
 
-      for (const cveRef of Array.from(cveRefs)) {
-        const cveId = cveRef.textContent?.trim() || '';
-        if (!cveId.startsWith('CVE-')) continue;
-
+      for (const cveId of cveMatches) {
         cves.push({
           id: cveId,
-          description: `[SAP ${componentInfo}] ${description || title}`,
+          description: `[SAP ${componentInfo}] ${title}`,
           severity: mapSAPPriority(priority),
           published: new Date(published).toISOString(),
           source: 'SAP',
@@ -48,7 +48,7 @@ export async function fetchSAPNotes(): Promise<CVE[]> {
           }
         });
       }
-    }
+    });
 
     return cves;
   } catch (error) {
