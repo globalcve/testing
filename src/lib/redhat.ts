@@ -1,9 +1,9 @@
 import { CVE } from '@/types';
-import { JSDOM } from 'jsdom';
+// import { JSDOM } from 'jsdom'; // Using regex for XML parsing
 
 const REDHAT_OVAL_URL = 'https://www.redhat.com/security/data/oval/v2/RHEL8/';
 
-export async function fetchRedHatCVEs(): Promise<CVE[]> {
+export async function fetchRedHatCVEs( ): Promise<CVE[]> {
   try {
     const response = await fetch(REDHAT_OVAL_URL);
     if (!response.ok) {
@@ -11,31 +11,29 @@ export async function fetchRedHatCVEs(): Promise<CVE[]> {
     }
     
     const xml = await response.text();
-    const dom = new JSDOM(xml, { contentType: 'text/xml' });
-    const doc = dom.window.document;
 
     const cves: CVE[] = [];
-    const definitions = doc.querySelectorAll('definition');
+    
+    // Simple regex to extract definition blocks
+    const definitionMatches = xml.matchAll(/<definition[\s\S]*?<\/definition>/g);
 
-    for (const def of Array.from(definitions)) {
-      const metadata = def.querySelector('metadata');
-      if (!metadata) continue;
+    for (const defMatch of Array.from(definitionMatches)) {
+      const def = defMatch[0];
 
-      const title = metadata.querySelector('title')?.textContent || '';
-      const description = metadata.querySelector('description')?.textContent || '';
-      const severity = metadata.querySelector('severity')?.textContent?.toUpperCase() || 'UNKNOWN';
-      const issued = metadata.querySelector('issued')?.getAttribute('date') || '';
-      const cveRefs = metadata.querySelectorAll('reference[source="CVE"]');
+      // Extract metadata
+      const title = def.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || '';
+      const description = def.match(/<description>([\s\S]*?)<\/description>/)?.[1]?.trim() || '';
+      const severity = def.match(/<severity>([\s\S]*?)<\/severity>/)?.[1]?.trim().toUpperCase() || 'UNKNOWN';
+      const issued = def.match(/<issued date="([\s\S]*?)"/)?.[1]?.trim() || '';
+      
+      // Extract CVE IDs
+      const cveRefMatches = def.matchAll(/<reference source="CVE" ref_id="([\s\S]*?)"/g);
+      const cveIds = Array.from(cveRefMatches).map(m => m[1]).filter(id => id.startsWith('CVE-'));
 
-      // Get affected packages
-      const affectedPackages = Array.from(def.querySelectorAll('rpm'))
-        .map(rpm => rpm.getAttribute('name'))
-        .filter((name): name is string => name !== null);
+      // Extract affected packages (simplified)
+      const affectedPackages = Array.from(def.matchAll(/<rpm name="([\s\S]*?)"/g)).map(m => m[1]);
 
-      for (const cveRef of Array.from(cveRefs)) {
-        const cveId = cveRef.getAttribute('ref_id');
-        if (!cveId?.startsWith('CVE-')) continue;
-
+      for (const cveId of cveIds) {
         cves.push({
           id: cveId,
           description: `[RedHat] ${description || title}`,
