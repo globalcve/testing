@@ -1,20 +1,16 @@
 import { CVE } from '@/types';
-// import { JSDOM } from 'jsdom'; // Not needed if using cheerio
+import * as cheerio from 'cheerio';
 
 const LENOVO_PSIRT_URL = 'https://support.lenovo.com/us/en/product_security/ps';
 
-import * as cheerio from 'cheerio';
-
-export async function fetchThinkpadCVEs(query: string = '' ): Promise<CVE[]> {
+export async function fetchThinkpadCVEs(query: string = ''): Promise<CVE[]> {
   try {
-    const response = await fetch('https://support.lenovo.com/us/en/solutions/len-24692' );
+    const response = await fetch('https://support.lenovo.com/us/en/solutions/len-24692');
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const html = await response.text();
 
-
-    
-    // Find all advisory entries that mention ThinkPad
-
+    // Load the HTML into cheerio
+    const $ = cheerio.load(html);
 
     const advisories: CVE[] = [];
 
