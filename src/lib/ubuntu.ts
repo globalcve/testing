@@ -1,9 +1,9 @@
 import { CVE } from '@/types';
-import { JSDOM } from 'jsdom';
+import * as cheerio from 'cheerio';
 
 const UBUNTU_USN_URL = 'https://ubuntu.com/security/notices/';
 
-export async function fetchUbuntuCVEs(): Promise<CVE[]> {
+export async function fetchUbuntuCVEs( ): Promise<CVE[]> {
   try {
     const response = await fetch(UBUNTU_USN_URL);
     if (!response.ok) {
@@ -11,34 +11,29 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
     }
     
     const html = await response.text();
-    const dom = new JSDOM(html);
-    const doc = dom.window.document;
+    const $ = cheerio.load(html);
 
     const cves: CVE[] = [];
-    const notices = doc.querySelectorAll('.cve-notice');
+    const notices = $('.cve-notice');
 
-    for (const notice of Array.from(notices)) {
-      const titleElement = notice.querySelector('.p-notification__title');
-      const dateElement = notice.querySelector('.p-notification__date');
-      const descriptionElement = notice.querySelector('.p-notification__description');
-      const cveElements = notice.querySelectorAll('.cve-reference');
-
-      const title = titleElement?.textContent?.trim() || '';
-      const published = dateElement?.textContent?.trim() || '';
-      const description = descriptionElement?.textContent?.trim() || '';
+    notices.each((_, notice) => {
+      const title = $(notice).find('.p-notification__title').text().trim() || '';
+      const published = $(notice).find('.p-notification__date').text().trim() || '';
+      const description = $(notice).find('.p-notification__description').text().trim() || '';
+      const cveElements = $(notice).find('.cve-reference');
 
       // Extract affected packages
       const packageMatch = title.match(/\((.*?)\)/);
       const affectedPackage = packageMatch ? packageMatch[1] : '';
 
-      for (const cveElement of Array.from(cveElements)) {
-        const cveId = cveElement.textContent?.trim() || '';
-        if (!cveId.startsWith('CVE-')) continue;
+      cveElements.each((_, cveElement) => {
+        const cveId = $(cveElement).text().trim();
+        if (!cveId.startsWith('CVE-')) return;
 
         cves.push({
           id: cveId,
           description: `[Ubuntu ${affectedPackage}] ${description}`,
-          severity: determineSeverity(notice),
+          severity: determineSeverity($(notice)),
           published: new Date(published).toISOString(),
           source: 'UBUNTU',
           metadata: {
@@ -49,8 +44,8 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
             releasePackages: title.split(',').map(p => p.trim())
           }
         });
-      }
-    }
+      });
+    });
 
     return cves;
   } catch (error) {
@@ -59,9 +54,8 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
   }
 }
 
-function determineSeverity(element: Element): string {
-  const priorityElement = element.querySelector('.p-notification__priority');
-  const priority = priorityElement?.textContent?.toLowerCase().trim() || '';
+function determineSeverity(element: cheerio.Cheerio<cheerio.Element>): string {
+  const priority = element.find('.p-notification__priority').text().toLowerCase().trim() || '';
   
   switch (priority) {
     case 'critical': return 'CRITICAL';
