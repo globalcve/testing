@@ -22,7 +22,7 @@ interface AppleAdvisory {
  * Fetches Apple Security Advisories
  * Returns array of normalized vulnerability objects
  */
-export async function fetchAppleAdvisories(): Promise<any[]> {
+export async function fetchAppleAdvisories( ): Promise<any[]> {
   const results: any[] = [];
 
   try {
