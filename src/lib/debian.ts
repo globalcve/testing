@@ -16,7 +16,7 @@ interface DebianVulnerability {
 
 type DebianData = Record<string, Record<string, DebianVulnerability>>;
 
-export async function fetchDebianCVEs(): Promise<CVE[]> {
+export async function fetchDebianCVEs( ): Promise<CVE[]> {
   try {
     const response = await fetch(DEBIAN_SECURITY_URL);
     if (!response.ok) {
