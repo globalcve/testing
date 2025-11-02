@@ -25,6 +25,9 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
       const packageMatch = title.match(/\((.*?)\)/);
       const affectedPackage = packageMatch ? packageMatch[1] : '';
 
+      // Determine severity for this notice
+      const severity = determineSeverity($, notice);
+
       cveElements.each((_, cveElement) => {
         const cveId = $(cveElement).text().trim();
         if (!cveId.startsWith('CVE-')) return;
@@ -32,7 +35,7 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
         cves.push({
           id: cveId,
           description: `[Ubuntu ${affectedPackage}] ${description}`,
-          severity: determineSeverity($(notice)),
+          severity: severity,
           published: new Date(published).toISOString(),
           source: 'UBUNTU',
           metadata: {
@@ -53,8 +56,8 @@ export async function fetchUbuntuCVEs(): Promise<CVE[]> {
   }
 }
 
-function determineSeverity(element: ReturnType<typeof cheerio.load>): string {
-  const priority = element.find('.p-notification__priority').text().toLowerCase().trim() || '';
+function determineSeverity($: cheerio.CheerioAPI, element: any): string {
+  const priority = $(element).find('.p-notification__priority').text().toLowerCase().trim() || '';
   
   switch (priority) {
     case 'critical': return 'CRITICAL';
