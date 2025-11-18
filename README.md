@@ -179,3 +179,5 @@ We welcome PRs, parser improvements, and new source integrations. Whether you're
 ---
 
 > Built with clarity, minimalism, and a deep respect for reproducibility.
+
+GNU GPL v3.0 
