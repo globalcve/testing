@@ -47,7 +47,13 @@ export default function LatestPage() {
           break;
       }
 
-      const filtered = results.filter((cve: any) => {
+   const filtered = results.filter((cve: any) => {
+        // Always include KEV regardless of date
+        if (cve.source === 'KEV' || cve.kev === true) {
+          return true;
+        }
+        
+        // Filter others by date
         try {
           return new Date(cve.published).getTime() >= cutoff.getTime();
         } catch {
