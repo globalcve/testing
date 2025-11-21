@@ -71,12 +71,12 @@ export default function TopSourcesChart({ stats, detailed = false }: TopSourcesC
             padding: 12,
             displayColors: true,
             callbacks: {
-              label: function(context) {
+        label: function(context) {
                 const total = stats.total || 1;
-                const value = context.parsed.x || context.parsed.y;
+                const value = context.parsed.x || context.parsed.y || 0;
                 const percentage = (value / total * 100).toFixed(1);
                 return `${context.label}: ${value} CVEs (${percentage}%)`;
-              }
+        }
             }
           }
         },
