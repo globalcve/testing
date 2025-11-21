@@ -76,7 +76,7 @@ export async function GET(request: Request) {
     console.warn('⚠️ NVD_API_KEY not configured');
   }
 
-  // 🔹 CIRCL - Get recent CVEs
+// 🔹 CIRCL - Get recent CVEs (skip GHSA)
   try {
     const circlUrl = `https://cve.circl.lu/api/last/100`;
     const circlRes = await fetch(circlUrl);
@@ -86,13 +86,23 @@ export async function GET(request: Request) {
       const items = Array.isArray(circlData) ? circlData : [circlData];
       
       const circlCVEs = items
-        .filter((item: any) => item.id)
+        .filter((item: any) => {
+          const id = item.id || item.cveMetadata?.cveId;
+          // Only accept CVE-* IDs, skip GHSA-*
+          return id && id.startsWith('CVE-');
+        })
         .map((item: any) => {
           const id = item.id || item.cveMetadata?.cveId;
-          const description = item.summary?.trim() || 
-                            item.vulnerable_configuration_cpe_2_2?.[0] ||
-                            item.vulnerable_product?.[0] ||
-                            'No description available';
+          
+          // Try multiple description fields
+          let description = 'No description available';
+          if (item.summary?.trim()) {
+            description = item.summary.trim();
+          } else if (item.description?.trim()) {
+            description = item.description.trim();
+          } else if (item.containers?.cna?.descriptions?.[0]?.value) {
+            description = item.containers.cna.descriptions[0].value;
+          }
           
           return {
             id,
@@ -105,7 +115,7 @@ export async function GET(request: Request) {
         });
 
       allResults.push(...circlCVEs);
-      console.log('✅ CIRCL CVEs fetched:', circlCVEs.length);
+      console.log('✅ CIRCL CVEs fetched (filtered GHSA):', circlCVEs.length);
     }
   } catch (err) {
     console.error('❌ CIRCL error:', err);
