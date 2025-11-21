@@ -13,10 +13,8 @@ function inferSeverity(item: any): string {
     if (score >= 4) return 'MEDIUM';
     if (score > 0) return 'LOW';
   }
-
   const label = item.severity?.toUpperCase?.();
   if (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(label)) return label;
-
   return 'UNKNOWN';
 }
 
@@ -25,30 +23,46 @@ export async function GET(request: Request) {
   const sortOrder = searchParams.get('sort') || 'newest';
 
   const allResults: any[] = [];
-  console.log('🔍 Latest CVEs API - Fetching from optimized sources');
+  console.log('🔍 Latest CVEs API - Using sources that support browse mode');
 
-  // KEV - Fetch for enrichment only
+  // 1. KEV - Returns complete list, add as source
   let kevMap = new Map<string, boolean>();
   try {
     const kevList = await fetchKEV();
     kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
-    console.log('🚨 KEV entries loaded for enrichment:', kevMap.size);
+    
+    // Add KEV as source
+    const kevCVEs = kevList.map(item => ({
+      id: item.cveID,
+      description: item.vulnerabilityName || item.shortDescription || 'Known exploited vulnerability',
+      severity: 'CRITICAL',
+      published: item.dateAdded,
+      source: 'KEV',
+      kev: true,
+      metadata: {
+        vendorProject: item.vendorProject,
+        product: item.product,
+        requiredAction: item.requiredAction,
+        dueDate: item.dueDate
+      }
+    }));
+    
+    allResults.push(...kevCVEs);
+    console.log('✅ KEV CVEs:', kevCVEs.length);
   } catch (err) {
-    console.error('❌ KEV fetch error:', err);
+    console.error('❌ KEV error:', err);
   }
 
-  // 🔹 NVD - Use pubStartDate for recent CVEs
+  // 2. NVD - Use pubStartDate (no query needed)
   if (NVD_API_KEY) {
     try {
-      const nvdStartDate = new Date();
-      nvdStartDate.setDate(nvdStartDate.getDate() - 120);
-      const nvdStartDateStr = nvdStartDate.toISOString();
-
-      const nvdUrl = `https://services.nvd.nist.gov/rest/json/cves/2.0?pubStartDate=${nvdStartDateStr}&resultsPerPage=2000`;
-      console.log('🌐 NVD URL:', nvdUrl);
-
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 120);
+      
+      const nvdUrl = `https://services.nvd.nist.gov/rest/json/cves/2.0?pubStartDate=${startDate.toISOString()}&resultsPerPage=2000`;
+      
       const nvdRes = await fetch(nvdUrl, {
-        headers: { 'apiKey': NVD_API_KEY },
+        headers: { 'apiKey': NVD_API_KEY }
       });
 
       if (nvdRes.ok) {
@@ -57,71 +71,22 @@ export async function GET(request: Request) {
           id: item.cve.id,
           description: item.cve.descriptions?.[0]?.value || 'No description',
           severity: item.cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseSeverity || 'UNKNOWN',
-          published: item.cve.published || new Date().toISOString(),
+          published: item.cve.published,
           source: 'NVD',
           kev: kevMap.has(item.cve.id),
           metadata: {
-            cvss: item.cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore,
+            cvss: item.cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore
           }
         }));
         allResults.push(...nvdCVEs);
-        console.log('✅ NVD CVEs fetched:', nvdCVEs.length);
-      } else {
-        console.error('❌ NVD fetch failed:', nvdRes.status);
+        console.log('✅ NVD CVEs:', nvdCVEs.length);
       }
     } catch (err) {
       console.error('❌ NVD error:', err);
     }
-  } else {
-    console.warn('⚠️ NVD_API_KEY not configured');
   }
 
-// 🔹 CIRCL - Get recent CVEs (skip GHSA)
-  try {
-    const circlUrl = `https://cve.circl.lu/api/last/100`;
-    const circlRes = await fetch(circlUrl);
-    
-    if (circlRes.ok) {
-      const circlData = await circlRes.json();
-      const items = Array.isArray(circlData) ? circlData : [circlData];
-      
-      const circlCVEs = items
-        .filter((item: any) => {
-          const id = item.id || item.cveMetadata?.cveId;
-          // Only accept CVE-* IDs, skip GHSA-*
-          return id && id.startsWith('CVE-');
-        })
-        .map((item: any) => {
-          const id = item.id || item.cveMetadata?.cveId;
-          
-          // Try multiple description fields
-          let description = 'No description available';
-          if (item.summary?.trim()) {
-            description = item.summary.trim();
-          } else if (item.description?.trim()) {
-            description = item.description.trim();
-          } else if (item.containers?.cna?.descriptions?.[0]?.value) {
-            description = item.containers.cna.descriptions[0].value;
-          }
-          
-          return {
-            id,
-            description,
-            severity: inferSeverity(item),
-            published: item.Published || item.Modified || new Date().toISOString(),
-            source: 'CIRCL',
-            kev: kevMap.has(id),
-          };
-        });
-
-      allResults.push(...circlCVEs);
-      console.log('✅ CIRCL CVEs fetched (filtered GHSA):', circlCVEs.length);
-    }
-  } catch (err) {
-    console.error('❌ CIRCL error:', err);
-  }
-
-  // 🔹 JVN Feed
+  // 3. JVN - RSS feed returns all
   try {
     const jvnResults = await fetchJVNFeed();
     const jvnCVEs = jvnResults.map((item) => ({
@@ -133,21 +98,18 @@ export async function GET(request: Request) {
       kev: kevMap.has(item.id),
     }));
     allResults.push(...jvnCVEs);
-    console.log('✅ JVN CVEs fetched:', jvnCVEs.length);
+    console.log('✅ JVN CVEs:', jvnCVEs.length);
   } catch (err) {
     console.error('❌ JVN error:', err);
   }
 
-  // Disabled sources
-  console.log('⏭️ Skipping: ExploitDB, Android, Apple, CERT-FR, Cisco, VMware, Oracle, Red Hat, Ubuntu, Debian, SAP, ThinkPad');
-
   console.log('📊 Total CVEs:', allResults.length);
+  console.log('ℹ️ Note: Other sources require search queries and are only available via home page search');
 
-  // Remove duplicates by ID
+  // Remove duplicates
   const uniqueResults = Array.from(
     new Map(allResults.map(item => [item.id, item])).values()
   );
-  console.log('📊 CVEs after deduplication:', uniqueResults.length);
 
   // Sort
   uniqueResults.sort((a, b) => {
@@ -156,10 +118,7 @@ export async function GET(request: Request) {
     return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
   });
 
-  // Calculate stats
   const stats = calculateStats(uniqueResults);
-
-  console.log('✅ Latest CVEs API complete - Returning:', uniqueResults.length, 'CVEs');
 
   return NextResponse.json({
     results: uniqueResults,
