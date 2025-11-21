@@ -25,13 +25,7 @@ export async function GET(request: Request) {
   const allResults: any[] = [];
   console.log('🔍 Latest CVEs API - Using sources that support browse mode');
 
-  // 1. KEV - Returns complete list, add as source
-  let kevMap = new Map<string, boolean>();
-  try {
-    const kevList = await fetchKEV();
-    kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
-    
-    // Add KEV as source
+// Add KEV as source
     const kevCVEs = kevList.map(item => ({
       id: item.cveID,
       description: item.vulnerabilityName || 'Known exploited vulnerability',
@@ -39,19 +33,7 @@ export async function GET(request: Request) {
       published: item.dateAdded,
       source: 'KEV',
       kev: true,
-      metadata: {
-        vendorProject: item.vendorProject,
-        product: item.product,
-        requiredAction: item.requiredAction,
-        dueDate: item.dueDate
-      }
     }));
-    
-    allResults.push(...kevCVEs);
-    console.log('✅ KEV CVEs:', kevCVEs.length);
-  } catch (err) {
-    console.error('❌ KEV error:', err);
-  }
 
   // 2. NVD - Use pubStartDate (no query needed)
   if (NVD_API_KEY) {
