@@ -20,34 +20,43 @@ export default function LatestPage() {
     fetchLatestCVEs();
   }, [timeframe]);
 
-  const fetchLatestCVEs = async () => {
+ const fetchLatestCVEs = async () => {
     setLoading(true);
     setError('');
 
     try {
-      // Calculate date range based on timeframe
-      const now = new Date();
-      const start = new Date(now);
-      switch (timeframe) {
-        case '24h':
-          start.setDate(start.getDate() - 1);
-          break;
-        case '7d':
-          start.setDate(start.getDate() - 7);
-          break;
-        case '30d':
-          start.setDate(start.getDate() - 30);
-          break;
-      }
-
-    const res = await fetch(`/api/latest-cves?sort=newest`);
+      const res = await fetch(`/api/latest-cves?sort=newest`);
       if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
       
       const data = await res.json();
       const results = data.results || [];
 
+      // Filter by timeframe
+      const now = new Date();
+      const cutoff = new Date(now);
+      
+      switch (timeframe) {
+        case '24h':
+          cutoff.setDate(cutoff.getDate() - 1);
+          break;
+        case '7d':
+          cutoff.setDate(cutoff.getDate() - 7);
+          break;
+        case '30d':
+          cutoff.setDate(cutoff.getDate() - 30);
+          break;
+      }
+
+      const filtered = results.filter((cve: any) => {
+        try {
+          return new Date(cve.published).getTime() >= cutoff.getTime();
+        } catch {
+          return false;
+        }
+      });
+
       // Group by severity
-      const grouped = results.reduce((acc: {[key: string]: any[]}, cve: any) => {
+      const grouped = filtered.reduce((acc: {[key: string]: any[]}, cve: any) => {
         const severity = cve.severity || 'UNKNOWN';
         if (!acc[severity]) acc[severity] = [];
         acc[severity].push(cve);
