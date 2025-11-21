@@ -35,24 +35,16 @@ export async function GET(request: Request) {
     kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
     
     // Add KEV entries as their own source
-    const kevCVEs = kevList.map(item => ({
-      id: item.cveID,
-      description: item.vulnerabilityName || item.shortDescription || 'KEV-listed vulnerability',
-      severity: 'CRITICAL', // KEV are actively exploited
-      published: item.dateAdded || new Date().toISOString(),
-      source: 'KEV',
-      kev: true,
-      metadata: {
-        vendorProject: item.vendorProject,
-        product: item.product,
-        requiredAction: item.requiredAction,
-        dueDate: item.dueDate
-      }
-    }));
+// KEV - Fetch as BOTH enrichment AND source
+  let kevMap = new Map<string, boolean>();
+  let kevList: any[] = [];
+  try {
+    kevList = await fetchKEV();
+    kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
     
-    allResults.push(...kevCVEs);
-    console.log('🚨 KEV entries loaded:', kevMap.size);
-    console.log('✅ KEV CVEs fetched:', kevCVEs.length);
+    // DON'T add KEV as separate source - they're already in other sources
+    // Just use for enrichment
+    console.log('🚨 KEV entries loaded for enrichment:', kevMap.size);
   } catch (err) {
     console.error('❌ KEV fetch error:', err);
   }
@@ -96,23 +88,34 @@ export async function GET(request: Request) {
     console.warn('⚠️ NVD_API_KEY not configured');
   }
 
-  // 🔹 CIRCL - Get recent CVEs
+  
+ // 🔹 CIRCL - Get recent CVEs
   try {
-    const circlUrl = `https://cve.circl.lu/api/last`;
+    const circlUrl = `https://cve.circl.lu/api/last/100`; // Get more results
     const circlRes = await fetch(circlUrl);
     
     if (circlRes.ok) {
       const circlData = await circlRes.json();
       const items = Array.isArray(circlData) ? circlData : [circlData];
       
-      const circlCVEs = items.map((item: any) => ({
-        id: item.id || item.cveMetadata?.cveId,
-        description: item.summary || item?.containers?.cna?.descriptions?.[0]?.value || 'No description',
-        severity: inferSeverity(item),
-        published: item.Published || new Date().toISOString(),
-        source: 'CIRCL',
-        kev: kevMap.has(item.id || item.cveMetadata?.cveId),
-      })).filter((cve: any) => cve.id);
+      const circlCVEs = items
+        .filter((item: any) => item.id) // Must have ID
+        .map((item: any) => {
+          const id = item.id || item.cveMetadata?.cveId;
+          const description = item.summary?.trim() || 
+                            item.vulnerable_configuration_cpe_2_2?.[0] ||
+                            item.vulnerable_product?.[0] ||
+                            'No description available';
+          
+          return {
+            id,
+            description,
+            severity: inferSeverity(item),
+            published: item.Published || item.Modified || new Date().toISOString(),
+            source: 'CIRCL',
+            kev: kevMap.has(id),
+          };
+        });
 
       allResults.push(...circlCVEs);
       console.log('✅ CIRCL CVEs fetched:', circlCVEs.length);
