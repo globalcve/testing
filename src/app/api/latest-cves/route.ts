@@ -303,21 +303,8 @@ export async function GET(request: Request) {
   }
 
   // 🔹 Debian
-  try {
-    const debianResults = await fetchDebianCVEs();
-    const debianCVEs = debianResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'DEBIAN',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...debianCVEs);
-    console.log('✅ Debian CVEs fetched:', debianCVEs.length);
-  } catch (err) {
-    console.error('❌ Debian error:', err);
-  }
+ // 🔹 Debian - DISABLED (53k+ entries cause timeout)
+  console.log('⏭️ Skipping Debian - too large for browse mode');
 
   // 🔹 SAP
   try {
