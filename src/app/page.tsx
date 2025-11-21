@@ -103,12 +103,13 @@ export default function Page() {
     <main className="min-h-screen bg-[#282a36] text-[#f8f8f2] flex flex-col items-center justify-center p-6 space-y-2">
       <nav className="w-full bg-[#44475a] text-[#f8f8f2] py-4 px-6 flex justify-between items-center">
         <h1 className="text-xl font-bold text-[#50fa7b]">GlobalCVE</h1>
-        <ul className="flex space-x-6 text-sm">
+ <ul className="flex space-x-6 text-sm">
           <li><a href="/" className="hover:underline text-[#8be9fd]">Home</a></li>
-          <li><a href="#search" className="hover:underline text-[#ff79c6]">Search</a></li>
-          <li><a href="/docs" className="hover:underline text-[#bd93f9]">API Docs</a></li>
-          <li><a href="https://github.com/globalcve" className="hover:underline text-[#f1fa8c]">GitHub</a></li>
-        </ul>
+          <li><a href="/latest" className="hover:underline text-[#ff79c6]">Latest CVEs</a></li>
+          <li><a href="/dashboard" className="hover:underline text-[#bd93f9]">Dashboard</a></li>
+          <li><a href="/docs" className="hover:underline text-[#f1fa8c]">API Docs</a></li>
+          <li><a href="https://github.com/globalcve" className="hover:underline text-[#ffb86c]">GitHub</a></li>
+        </ul> 
       </nav>
 
       <img src="/globalcve-logo.png" alt="GlobalCVE Logo" className="w-64 h-64" />
