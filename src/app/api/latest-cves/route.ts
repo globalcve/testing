@@ -369,13 +369,10 @@ export async function GET(request: Request) {
 
   console.log('📊 Total CVEs before filtering:', allResults.length);
 
-// Filter by date if provided (but keep KEV regardless of date)
+// Filter by date if provided
   let filtered = allResults;
   if (startDateTime) {
     filtered = allResults.filter(cve => {
-      // Always include KEV source
-      if (cve.source === 'KEV') return true;
-      
       try {
         const cveDate = new Date(cve.published).getTime();
         return cveDate >= startDateTime;
