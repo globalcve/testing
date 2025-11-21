@@ -40,7 +40,7 @@ export default function LatestPage() {
           break;
       }
 
-    const res = await fetch(`/api/latest-cves?startDate=${start.toISOString()}&sort=newest`);
+    const res = await fetch(`/api/latest-cves?sort=newest`);
       if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
       
       const data = await res.json();
