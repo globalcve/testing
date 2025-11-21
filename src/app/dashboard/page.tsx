@@ -48,7 +48,13 @@ export default function DashboardPage() {
             break;
         }
         
-        filteredResults = filteredResults.filter((cve: any) => {
+       filteredResults = filteredResults.filter((cve: any) => {
+          // Always include KEV regardless of date
+          if (cve.source === 'KEV' || cve.kev === true) {
+            return true;
+          }
+          
+          // Filter others by date
           try {
             return new Date(cve.published).getTime() >= cutoff.getTime();
           } catch {
