@@ -343,18 +343,9 @@ export async function GET(request: Request) {
   console.log('📊 Total CVEs before filtering:', allResults.length);
 
 // Filter by date if provided
+ // Don't filter by date - show all results
   let filtered = allResults;
-  if (startDateTime) {
-    filtered = allResults.filter(cve => {
-      try {
-        const cveDate = new Date(cve.published).getTime();
-        return cveDate >= startDateTime;
-      } catch {
-        return false;
-      }
-    });
-    console.log('📊 CVEs after date filter:', filtered.length);
-  }
+  console.log('📊 Total CVEs:', filtered.length);
 
   // Remove duplicates by ID
   const uniqueResults = Array.from(
