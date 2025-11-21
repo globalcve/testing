@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     // Add KEV as source
     const kevCVEs = kevList.map(item => ({
       id: item.cveID,
-      description: item.vulnerabilityName || item.shortDescription || 'Known exploited vulnerability',
+      description: item.vulnerabilityName || 'Known exploited vulnerability',
       severity: 'CRITICAL',
       published: item.dateAdded,
       source: 'KEV',
