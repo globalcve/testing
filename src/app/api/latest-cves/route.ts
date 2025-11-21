@@ -50,11 +50,32 @@ export async function GET(request: Request) {
   console.log('📅 Date filter:', startDate);
 
   // KEV enrichment
+// KEV - Fetch as BOTH enrichment AND source
   let kevMap = new Map<string, boolean>();
+  let kevList: any[] = [];
   try {
-    const kevList = await fetchKEV();
+    kevList = await fetchKEV();
     kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
+    
+    // Add KEV entries as their own source
+    const kevCVEs = kevList.map(item => ({
+      id: item.cveID,
+      description: item.vulnerabilityName || item.shortDescription || 'KEV-listed vulnerability',
+      severity: 'CRITICAL', // KEV are actively exploited
+      published: item.dateAdded || new Date().toISOString(),
+      source: 'KEV',
+      kev: true,
+      metadata: {
+        vendorProject: item.vendorProject,
+        product: item.product,
+        requiredAction: item.requiredAction,
+        dueDate: item.dueDate
+      }
+    }));
+    
+    allResults.push(...kevCVEs);
     console.log('🚨 KEV entries loaded:', kevMap.size);
+    console.log('✅ KEV CVEs fetched:', kevCVEs.length);
   } catch (err) {
     console.error('❌ KEV fetch error:', err);
   }
@@ -348,10 +369,13 @@ export async function GET(request: Request) {
 
   console.log('📊 Total CVEs before filtering:', allResults.length);
 
-  // Filter by date if provided
+// Filter by date if provided (but keep KEV regardless of date)
   let filtered = allResults;
   if (startDateTime) {
     filtered = allResults.filter(cve => {
+      // Always include KEV source
+      if (cve.source === 'KEV') return true;
+      
       try {
         const cveDate = new Date(cve.published).getTime();
         return cveDate >= startDateTime;
