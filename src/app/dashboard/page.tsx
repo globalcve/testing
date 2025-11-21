@@ -7,10 +7,13 @@ import SeverityDistributionChart from '../components/SeverityDistributionChart';
 import TrendChart from '../components/TrendChart';
 import TopSourcesChart from '../components/TopSourcesChart';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CveCard from '../components/CveCard';
+import SeveritySection from '../components/SeveritySection';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'sources' | 'severity'>('overview');
   const [stats, setStats] = useState<any>(null);
+  const [cves, setCves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '1y'>('30d');
   const [error, setError] = useState('');
@@ -44,6 +47,7 @@ export default function DashboardPage() {
       
       const data = await res.json();
       setStats(data.stats);
+      setCves(data.results || []);
     } catch (err: any) {
       console.error('❌ Dashboard fetch error:', err);
       setError('Failed to fetch dashboard data. Please try again.');
@@ -58,6 +62,14 @@ export default function DashboardPage() {
     { id: 'sources', label: 'Sources', icon: '🌐', color: 'text-[#ff79c6]' },
     { id: 'severity', label: 'Severity', icon: '⚠️', color: 'text-[#ffb86c]' },
   ];
+
+  // Group CVEs by severity
+  const cvesBySeverity = cves.reduce((acc: any, cve: any) => {
+    const severity = cve.severity || 'UNKNOWN';
+    if (!acc[severity]) acc[severity] = [];
+    acc[severity].push(cve);
+    return acc;
+  }, { CRITICAL: [], HIGH: [], MEDIUM: [], LOW: [] });
 
   return (
     <div className="min-h-screen bg-[#282a36] text-[#f8f8f2]">
@@ -164,6 +176,23 @@ export default function DashboardPage() {
                   <h3 className="text-xl font-bold text-[#bd93f9] mb-4">CVE Trends Over Time</h3>
                   <CVEStatisticsGraph />
                 </div>
+
+                {/* Latest CVEs in Overview */}
+                <div className="bg-[#44475a] rounded-lg p-6 border border-[#6272a4]">
+                  <h3 className="text-xl font-bold text-[#50fa7b] mb-4">Latest CVEs ({cves.length} total)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cves.slice(0, 10).map((cve: any) => (
+                      <CveCard key={cve.id} {...cve} />
+                    ))}
+                  </div>
+                  {cves.length > 10 && (
+                    <div className="mt-4 text-center">
+                      <a href="/latest" className="text-[#8be9fd] hover:underline">
+                        View all {cves.length} CVEs →
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -192,14 +221,18 @@ export default function DashboardPage() {
 
                 <div className="bg-[#44475a] rounded-lg p-6 border border-[#6272a4]">
                   <h3 className="text-xl font-bold text-[#8be9fd] mb-4">Source Coverage</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {stats.bySources && Object.entries(stats.bySources).slice(0, 8).map(([source, count]: [string, any]) => (
-                      <div key={source} className="bg-[#282a36] p-4 rounded-lg">
-                        <div className="text-2xl font-bold text-[#50fa7b]">{count}</div>
-                        <div className="text-sm text-[#6272a4] truncate">{source}</div>
-                      </div>
-                    ))}
-                  </div>
+                  {stats.bySources ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {Object.entries(stats.bySources).slice(0, 8).map(([source, count]: [string, any]) => (
+                        <div key={source} className="bg-[#282a36] p-4 rounded-lg">
+                          <div className="text-2xl font-bold text-[#50fa7b]">{count}</div>
+                          <div className="text-sm text-[#6272a4] truncate">{source}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[#6272a4]">No source data available</p>
+                  )}
                 </div>
               </div>
             )}
@@ -253,6 +286,36 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* CVEs by Severity */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <SeveritySection
+                    title="Critical"
+                    cves={cvesBySeverity.CRITICAL}
+                    loading={false}
+                    bgColor="bg-[#ff5555]"
+                  />
+                  <SeveritySection
+                    title="High"
+                    cves={cvesBySeverity.HIGH}
+                    loading={false}
+                    bgColor="bg-[#ffb86c]"
+                  />
+                  <SeveritySection
+                    title="Medium"
+                    cves={cvesBySeverity.MEDIUM}
+                    loading={false}
+                    bgColor="bg-[#f1fa8c]"
+                    textColor="text-[#282a36]"
+                  />
+                  <SeveritySection
+                    title="Low"
+                    cves={cvesBySeverity.LOW}
+                    loading={false}
+                    bgColor="bg-[#50fa7b]"
+                    textColor="text-[#282a36]"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -260,4 +323,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-              }
+}
