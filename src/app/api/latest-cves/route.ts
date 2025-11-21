@@ -1,19 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchJVNFeed } from "@/lib/jvn";
-import { fetchExploitDB } from "@/lib/exploitdb";
 import { fetchKEV } from "@/lib/kev";
 import { calculateStats } from "@/lib/stats";
-import { fetchAndroidBulletin } from "@/lib/android";
-import { fetchAppleAdvisories } from "@/lib/apple";
-import { fetchCertFR } from "@/lib/certfr";
-import { fetchThinkpadCVEs } from "@/lib/thinkpad";
-import { fetchOracleCPUs } from "@/lib/oracle";
-import { fetchVMwareAdvisories } from "@/lib/vmware";
-import { fetchCiscoAdvisories } from "@/lib/cisco";
-import { fetchRedHatCVEs } from "@/lib/redhat";
-import { fetchUbuntuCVEs } from "@/lib/ubuntu";
-import { fetchDebianCVEs } from "@/lib/debian";
-import { fetchSAPNotes } from "@/lib/sap";
 
 const NVD_API_KEY = process.env.NVD_API_KEY;
 
@@ -34,23 +22,12 @@ function inferSeverity(item: any): string {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const startDate = searchParams.get('startDate');
   const sortOrder = searchParams.get('sort') || 'newest';
 
-  let startDateTime: number | null = null;
-  if (startDate) {
-    const date = new Date(startDate);
-    if (!isNaN(date.getTime())) {
-      startDateTime = date.getTime();
-    }
-  }
-
   const allResults: any[] = [];
-  console.log('🔍 Latest CVEs API - Fetching from all sources');
-  console.log('📅 Date filter:', startDate);
+  console.log('🔍 Latest CVEs API - Fetching from optimized sources');
 
-  // KEV enrichment
-// KEV - Fetch as BOTH enrichment AND source
+  // KEV - Fetch as BOTH enrichment AND source
   let kevMap = new Map<string, boolean>();
   let kevList: any[] = [];
   try {
@@ -83,7 +60,6 @@ export async function GET(request: Request) {
   // 🔹 NVD - Use pubStartDate for recent CVEs
   if (NVD_API_KEY) {
     try {
-      // Calculate date for NVD pubStartDate (last 120 days to get enough results)
       const nvdStartDate = new Date();
       nvdStartDate.setDate(nvdStartDate.getDate() - 120);
       const nvdStartDateStr = nvdStartDate.toISOString();
@@ -145,7 +121,7 @@ export async function GET(request: Request) {
     console.error('❌ CIRCL error:', err);
   }
 
-  // 🔹 JVN Feed - Get ALL, filter by date later
+  // 🔹 JVN Feed
   try {
     const jvnResults = await fetchJVNFeed();
     const jvnCVEs = jvnResults.map((item) => ({
@@ -162,194 +138,25 @@ export async function GET(request: Request) {
     console.error('❌ JVN error:', err);
   }
 
-  // 🔹 ExploitDB
- // 🔹 ExploitDB - DISABLED (30k+ entries cause timeout)
-  console.log('⏭️ Skipping ExploitDB - too large for browse mode');
+  // Disabled sources (too slow or return 0 results)
+  console.log('⏭️ Skipping: ExploitDB (30k+ entries)');
+  console.log('⏭️ Skipping: Android (slow, 0 results)');
+  console.log('⏭️ Skipping: Apple (0 results)');
+  console.log('⏭️ Skipping: CERT-FR (0 results)');
+  console.log('⏭️ Skipping: Cisco (0 results)');
+  console.log('⏭️ Skipping: VMware (0 results)');
+  console.log('⏭️ Skipping: Oracle (0 results)');
+  console.log('⏭️ Skipping: Red Hat (0 results)');
+  console.log('⏭️ Skipping: Ubuntu (0 results)');
+  console.log('⏭️ Skipping: Debian (53k+ entries)');
+  console.log('⏭️ Skipping: SAP (0 results)');
+  console.log('⏭️ Skipping: ThinkPad (0 results)');
 
-  // 🔹 Android Security Bulletins
-  try {
-    const androidResults = await fetchAndroidBulletin();
-    const androidCVEs = androidResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'ANDROID',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...androidCVEs);
-    console.log('✅ Android CVEs fetched:', androidCVEs.length);
-  } catch (err) {
-    console.error('❌ Android error:', err);
-  }
-
-  // 🔹 Apple Advisories
-  try {
-    const appleResults = await fetchAppleAdvisories();
-    const appleCVEs = appleResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'APPLE',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...appleCVEs);
-    console.log('✅ Apple CVEs fetched:', appleCVEs.length);
-  } catch (err) {
-    console.error('❌ Apple error:', err);
-  }
-
-  // 🔹 CERT-FR
-  try {
-    const certfrResults = await fetchCertFR();
-    const certfrCVEs = certfrResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'CERT-FR',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...certfrCVEs);
-    console.log('✅ CERT-FR CVEs fetched:', certfrCVEs.length);
-  } catch (err) {
-    console.error('❌ CERT-FR error:', err);
-  }
-
-  // 🔹 Cisco
-  try {
-    const ciscoResults = await fetchCiscoAdvisories();
-    const ciscoCVEs = ciscoResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'CISCO',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...ciscoCVEs);
-    console.log('✅ Cisco CVEs fetched:', ciscoCVEs.length);
-  } catch (err) {
-    console.error('❌ Cisco error:', err);
-  }
-
-  // 🔹 VMware
-  try {
-    const vmwareResults = await fetchVMwareAdvisories();
-    const vmwareCVEs = vmwareResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'VMWARE',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...vmwareCVEs);
-    console.log('✅ VMware CVEs fetched:', vmwareCVEs.length);
-  } catch (err) {
-    console.error('❌ VMware error:', err);
-  }
-
-  // 🔹 Oracle
-  try {
-    const oracleResults = await fetchOracleCPUs();
-    const oracleCVEs = oracleResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'ORACLE',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...oracleCVEs);
-    console.log('✅ Oracle CVEs fetched:', oracleCVEs.length);
-  } catch (err) {
-    console.error('❌ Oracle error:', err);
-  }
-
-  // 🔹 Red Hat
-  try {
-    const redhatResults = await fetchRedHatCVEs();
-    const redhatCVEs = redhatResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'REDHAT',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...redhatCVEs);
-    console.log('✅ Red Hat CVEs fetched:', redhatCVEs.length);
-  } catch (err) {
-    console.error('❌ Red Hat error:', err);
-  }
-
-  // 🔹 Ubuntu
-  try {
-    const ubuntuResults = await fetchUbuntuCVEs();
-    const ubuntuCVEs = ubuntuResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'UBUNTU',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...ubuntuCVEs);
-    console.log('✅ Ubuntu CVEs fetched:', ubuntuCVEs.length);
-  } catch (err) {
-    console.error('❌ Ubuntu error:', err);
-  }
-
-  // 🔹 Debian
- // 🔹 Debian - DISABLED (53k+ entries cause timeout)
-  console.log('⏭️ Skipping Debian - too large for browse mode');
-
-  // 🔹 SAP
-  try {
-    const sapResults = await fetchSAPNotes();
-    const sapCVEs = sapResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'SAP',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...sapCVEs);
-    console.log('✅ SAP CVEs fetched:', sapCVEs.length);
-  } catch (err) {
-    console.error('❌ SAP error:', err);
-  }
-
-  // 🔹 Lenovo ThinkPad
-  try {
-    const thinkpadResults = await fetchThinkpadCVEs();
-    const thinkpadCVEs = thinkpadResults.map(item => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'LENOVO.THINKPAD',
-      kev: kevMap.has(item.id),
-    }));
-    allResults.push(...thinkpadCVEs);
-    console.log('✅ ThinkPad CVEs fetched:', thinkpadCVEs.length);
-  } catch (err) {
-    console.error('❌ ThinkPad error:', err);
-  }
-
-  console.log('📊 Total CVEs before filtering:', allResults.length);
-
-// Filter by date if provided
- // Don't filter by date - show all results
-  let filtered = allResults;
-  console.log('📊 Total CVEs:', filtered.length);
+  console.log('📊 Total CVEs:', allResults.length);
 
   // Remove duplicates by ID
   const uniqueResults = Array.from(
-    new Map(filtered.map(item => [item.id, item])).values()
+    new Map(allResults.map(item => [item.id, item])).values()
   );
   console.log('📊 CVEs after deduplication:', uniqueResults.length);
 
