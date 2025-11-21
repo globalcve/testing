@@ -40,7 +40,7 @@ export default function LatestPage() {
           break;
       }
 
-     const res = await fetch(`/api/cves?query=&startDate=${start.toISOString()}&sort=newest`);
+     const res = await fetch(`/api/cves?query=CVE&startDate=${start.toISOString()}&sort=newest`);
       if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
       
       const data = await res.json();
