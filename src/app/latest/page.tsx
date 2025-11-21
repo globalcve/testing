@@ -13,7 +13,7 @@ export default function LatestPage() {
     LOW: [],
   });
   const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<'24h'|'7d'|'30d'>('7d');
+ const [timeframe, setTimeframe] = useState<'24h'|'7d'|'30d'>('30d');
   const [error, setError] = useState('');
 
   useEffect(() => {
