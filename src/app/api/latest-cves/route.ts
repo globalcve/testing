@@ -27,23 +27,11 @@ export async function GET(request: Request) {
   const allResults: any[] = [];
   console.log('🔍 Latest CVEs API - Fetching from optimized sources');
 
-  // KEV - Fetch as BOTH enrichment AND source
+  // KEV - Fetch for enrichment only
   let kevMap = new Map<string, boolean>();
-  let kevList: any[] = [];
   try {
-    kevList = await fetchKEV();
+    const kevList = await fetchKEV();
     kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
-    
-    // Add KEV entries as their own source
-// KEV - Fetch as BOTH enrichment AND source
-  let kevMap = new Map<string, boolean>();
-  let kevList: any[] = [];
-  try {
-    kevList = await fetchKEV();
-    kevMap = new Map(kevList.map(entry => [entry.cveID, true]));
-    
-    // DON'T add KEV as separate source - they're already in other sources
-    // Just use for enrichment
     console.log('🚨 KEV entries loaded for enrichment:', kevMap.size);
   } catch (err) {
     console.error('❌ KEV fetch error:', err);
@@ -88,10 +76,9 @@ export async function GET(request: Request) {
     console.warn('⚠️ NVD_API_KEY not configured');
   }
 
-  
- // 🔹 CIRCL - Get recent CVEs
+  // 🔹 CIRCL - Get recent CVEs
   try {
-    const circlUrl = `https://cve.circl.lu/api/last/100`; // Get more results
+    const circlUrl = `https://cve.circl.lu/api/last/100`;
     const circlRes = await fetch(circlUrl);
     
     if (circlRes.ok) {
@@ -99,7 +86,7 @@ export async function GET(request: Request) {
       const items = Array.isArray(circlData) ? circlData : [circlData];
       
       const circlCVEs = items
-        .filter((item: any) => item.id) // Must have ID
+        .filter((item: any) => item.id)
         .map((item: any) => {
           const id = item.id || item.cveMetadata?.cveId;
           const description = item.summary?.trim() || 
@@ -141,19 +128,8 @@ export async function GET(request: Request) {
     console.error('❌ JVN error:', err);
   }
 
-  // Disabled sources (too slow or return 0 results)
-  console.log('⏭️ Skipping: ExploitDB (30k+ entries)');
-  console.log('⏭️ Skipping: Android (slow, 0 results)');
-  console.log('⏭️ Skipping: Apple (0 results)');
-  console.log('⏭️ Skipping: CERT-FR (0 results)');
-  console.log('⏭️ Skipping: Cisco (0 results)');
-  console.log('⏭️ Skipping: VMware (0 results)');
-  console.log('⏭️ Skipping: Oracle (0 results)');
-  console.log('⏭️ Skipping: Red Hat (0 results)');
-  console.log('⏭️ Skipping: Ubuntu (0 results)');
-  console.log('⏭️ Skipping: Debian (53k+ entries)');
-  console.log('⏭️ Skipping: SAP (0 results)');
-  console.log('⏭️ Skipping: ThinkPad (0 results)');
+  // Disabled sources
+  console.log('⏭️ Skipping: ExploitDB, Android, Apple, CERT-FR, Cisco, VMware, Oracle, Red Hat, Ubuntu, Debian, SAP, ThinkPad');
 
   console.log('📊 Total CVEs:', allResults.length);
 
