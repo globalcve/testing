@@ -163,22 +163,8 @@ export async function GET(request: Request) {
   }
 
   // 🔹 ExploitDB
-  try {
-    const exploitResults = await fetchExploitDB();
-    const exploitCVEs = exploitResults.map((item) => ({
-      id: item.id,
-      description: item.description,
-      severity: inferSeverity(item),
-      published: item.published,
-      source: 'EXPLOITDB',
-      kev: kevMap.has(item.id),
-      metadata: { exploitAvailable: true }
-    }));
-    allResults.push(...exploitCVEs);
-    console.log('✅ ExploitDB CVEs fetched:', exploitCVEs.length);
-  } catch (err) {
-    console.error('❌ ExploitDB error:', err);
-  }
+ // 🔹 ExploitDB - DISABLED (30k+ entries cause timeout)
+  console.log('⏭️ Skipping ExploitDB - too large for browse mode');
 
   // 🔹 Android Security Bulletins
   try {
