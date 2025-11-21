@@ -22,32 +22,43 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, [timeframe]);
 
-  const fetchDashboardData = async () => {
+const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const now = new Date();
-      const start = new Date(now);
-      
-      switch (timeframe) {
-        case '7d':
-          start.setDate(start.getDate() - 7);
-          break;
-        case '30d':
-          start.setDate(start.getDate() - 30);
-          break;
-        case '1y':
-          start.setFullYear(start.getFullYear() - 1);
-          break;
-      }
-
       const res = await fetch(`/api/latest-cves?sort=newest`);
       if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
       
       const data = await res.json();
+      
+      // Filter by timeframe on frontend
+      let filteredResults = data.results || [];
+      
+      if (timeframe !== '1y') {
+        const now = new Date();
+        const cutoff = new Date(now);
+        
+        switch (timeframe) {
+          case '7d':
+            cutoff.setDate(cutoff.getDate() - 7);
+            break;
+          case '30d':
+            cutoff.setDate(cutoff.getDate() - 30);
+            break;
+        }
+        
+        filteredResults = filteredResults.filter((cve: any) => {
+          try {
+            return new Date(cve.published).getTime() >= cutoff.getTime();
+          } catch {
+            return false;
+          }
+        });
+      }
+      
       setStats(data.stats);
-      setCves(data.results || []);
+      setCves(filteredResults);
     } catch (err: any) {
       console.error('❌ Dashboard fetch error:', err);
       setError('Failed to fetch dashboard data. Please try again.');
